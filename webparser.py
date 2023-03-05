@@ -86,3 +86,16 @@ def _thread_target_fetch_url(url, main_tag, same_site):
         next_urls.append(next_url_str)
     
     return next_urls, graph_buffer
+
+
+if __name__ == '__main__':
+    wp = WebParser(source='https://fr.wikipedia.org/wiki/Wikip%C3%A9dia:Accueil_principal', same_site=True)
+
+    askMaintenance = False
+
+    while not askMaintenance and len(wp.next_urls) > 0:
+        for _ in range(10):
+            wp.fetch_process_next_url_batch(batch_size=1000)
+
+        wp.flush_graph_buffer()
+        with open('askMaintenance') as f: askMaintenance = len(f.readlines()) > 0
