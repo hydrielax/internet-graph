@@ -1,3 +1,5 @@
 __pycache__/
 .ipynb_checkpoints/
 graph.txt
+graph_txt.tar.gz
+data/
