@@ -16,9 +16,9 @@ def fetchUrlBatch(batchSize = 100):
 
 def loadUrls():
     global urls
-    with open('articleUrls.pk', 'rb') as f:
+    with open('data/articleUrls.pk', 'rb') as f:
         urls = pickle.load(f)
 
 def saveUrls():
-    with open('articleUrls.pk', 'wb') as f:
+    with open('data/articleUrls.pk', 'wb') as f:
         pickle.dump(urls, f)

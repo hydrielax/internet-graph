@@ -1,3 +1,5 @@
+**.gz
 __pycache__/
+data/
 .ipynb_checkpoints/
-graph.txt
+test**
