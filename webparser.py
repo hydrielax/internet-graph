@@ -31,7 +31,7 @@ class WebParser:
             self.known_urls.add(url) # we indicate that we process this url
 
             thread_args = (threads_result, url, self.main_tag, self.same_site)
-            threads.append(threading.Thread(target=lambda q, *args: q.put((url, _thread_target_fetch_url(*args))), args=thread_args))
+            threads.append(threading.Thread(target=lambda q, *args: q.put(_thread_target_fetch_url(*args)), args=thread_args))
 
         for thread in threads: thread.start()
         for thread in threads: thread.join()
@@ -44,7 +44,7 @@ class WebParser:
                 self.known_urls.discard(url)
                 self.next_urls.add(url)
             elif urls_discovered is not None:
-                self.graph_buffer.update({url : list(urls_discovered)})
+                self.graph_buffer[url] = list(urls_discovered)
                 next_urls_batch.update(urls_discovered)
 
         new_urls = next_urls_batch.difference(self.known_urls)
@@ -63,12 +63,12 @@ def _thread_target_fetch_url(url, main_tag, same_site):
     url_parsed = urlparse(url)
     # get the html content from parent url
     try: page_response = requests.get(url)
-    except: return -1
+    except: return url, -1
     page_content = page_response.text
     # get the 'main' tag
     main_match = re.search(rf'(<{main_tag}.*>.*</{main_tag}>)', page_content, flags=re.DOTALL)
     if main_match is None:
-        return
+        return url, None
     main_content = main_match.group(0)
     # get the urls inside the main tag
     next_urls_match = re.findall(r'<a[^>]*href="([^"\?#]+)(?:\?[^"]+)?(?:#[^"]+)?"[^>]*>', main_content)
@@ -83,7 +83,7 @@ def _thread_target_fetch_url(url, main_tag, same_site):
 
         urls_discovered.add(next_url_str)
     
-    return urls_discovered
+    return url, urls_discovered
 
 
 errors = ['Cat%C3%A9gorie:','Catégorie:','Fichier:','Sp%C3%A9cial:','Spécial:','Utilisateur:','Discussion:','Module:','Portail:','Mod%C3%A8le:','Modèle:','Discussion_','Projet:','Aide:','R%C3%A9f%C3%A9rence:','Référence:','Wikip%C3%A9dia:','Wikipédia:']
@@ -103,7 +103,7 @@ def wikipediaLoop(wp):
 
     while not askMaintenance and len(wp.next_urls) > 0:
         for _ in range(10):
-            wp.fetch_process_next_url_batch(batch_size=1000)
+            wp.fetch_process_next_url_batch(batch_size=200)
 
         wp.flush_graph_buffer()
         with open('askMaintenance') as f: askMaintenance = len(f.readlines()) > 0
