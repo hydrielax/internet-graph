@@ -31,7 +31,7 @@ class WebParser:
             self.known_urls.add(url) # we indicate that we process this url
 
             thread_args = (threads_result, url, self.main_tag, self.same_site)
-            threads.append(threading.Thread(target=lambda q, *args: q.put(url, _thread_target_fetch_url(*args)), args=thread_args))
+            threads.append(threading.Thread(target=lambda q, *args: q.put((url, _thread_target_fetch_url(*args))), args=thread_args))
 
         for thread in threads: thread.start()
         for thread in threads: thread.join()
@@ -40,7 +40,10 @@ class WebParser:
         next_urls_batch = set() 
         while not threads_result.empty():
             url, urls_discovered = threads_result.get()
-            if urls_discovered is not None:
+            if urls_discovered == -1:
+                self.known_urls.discard(url)
+                self.next_urls.add(url)
+            elif urls_discovered is not None:
                 self.graph_buffer.update({url : list(urls_discovered)})
                 next_urls_batch.update(urls_discovered)
 
@@ -59,7 +62,8 @@ def _thread_target_fetch_url(url, main_tag, same_site):
 
     url_parsed = urlparse(url)
     # get the html content from parent url
-    page_response = requests.get(url)
+    try: page_response = requests.get(url)
+    except: return -1
     page_content = page_response.text
     # get the 'main' tag
     main_match = re.search(rf'(<{main_tag}.*>.*</{main_tag}>)', page_content, flags=re.DOTALL)
