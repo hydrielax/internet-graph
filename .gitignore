@@ -1,4 +1,7 @@
 **.gz
+**.txt
+**.pk
+**.pkl
 __pycache__/
 data/
 .ipynb_checkpoints/

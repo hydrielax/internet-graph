@@ -31,7 +31,7 @@ class WebParser:
             self.known_urls.add(url) # we indicate that we process this url
 
             thread_args = (threads_result, url, self.main_tag, self.same_site)
-            threads.append(threading.Thread(target=lambda q, *args: q.put(_thread_target_fetch_url(*args)), args=thread_args))
+            threads.append(threading.Thread(target=lambda q, *args: q.put(url, _thread_target_fetch_url(*args)), args=thread_args))
 
         for thread in threads: thread.start()
         for thread in threads: thread.join()
@@ -39,11 +39,10 @@ class WebParser:
 
         next_urls_batch = set() 
         while not threads_result.empty():
-            result = threads_result.get()
-            if result is not None:
-                next_urls, graph_buffer = result
-                self.graph_buffer.update(graph_buffer)
-                next_urls_batch.update(next_urls)
+            url, urls_discovered = threads_result.get()
+            if urls_discovered is not None:
+                self.graph_buffer.update({url : list(urls_discovered)})
+                next_urls_batch.update(urls_discovered)
 
         new_urls = next_urls_batch.difference(self.known_urls)
         self.next_urls.update(new_urls)
@@ -55,12 +54,8 @@ class WebParser:
         
         self.graph_buffer = {}
 
-
 def _thread_target_fetch_url(url, main_tag, same_site):
-    next_urls = []
-    graph_buffer = {}
-
-    graph_buffer[url] = []
+    urls_discovered = set()
 
     url_parsed = urlparse(url)
     # get the html content from parent url
@@ -77,20 +72,29 @@ def _thread_target_fetch_url(url, main_tag, same_site):
     for next_url in next_urls_match:
         next_url_str: str = urljoin(url, next_url.strip())
         next_url_parsed = urlparse(next_url_str)
-        if not next_url_parsed.scheme in ['http', 'https']:
-            # skip if not http link (mailto for example)
-            continue
-        if same_site and next_url_parsed.netloc != url_parsed.netloc:
-            continue
-        graph_buffer[url].append(next_url_str)
-        next_urls.append(next_url_str)
+
+        if not next_url_parsed.scheme in ['http', 'https']: continue
+        if same_site and next_url_parsed.netloc != url_parsed.netloc: continue
+        if not _valid_url(next_url): continue
+
+        urls_discovered.add(next_url_str)
     
-    return next_urls, graph_buffer
+    return urls_discovered
 
 
-if __name__ == '__main__':
+errors = ['Cat%C3%A9gorie:','Catégorie:','Fichier:','Sp%C3%A9cial:','Spécial:','Utilisateur:','Discussion:','Module:','Portail:','Mod%C3%A8le:','Modèle:','Discussion_','Projet:','Aide:','R%C3%A9f%C3%A9rence:','Référence:','Wikip%C3%A9dia:','Wikipédia:']
+def _valid_url(url):
+    for err in errors:
+        if err in url:
+            return False
+    return True
+
+
+def WikipediaInit():
     wp = WebParser(source='https://fr.wikipedia.org/wiki/Wikip%C3%A9dia:Accueil_principal', same_site=True)
+    return wp
 
+def wikipediaLoop(wp):
     askMaintenance = False
 
     while not askMaintenance and len(wp.next_urls) > 0:
